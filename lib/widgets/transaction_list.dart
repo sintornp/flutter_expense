@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/transaction.dart';
+import './transaction_item.dart';
 
 class TransactionList extends StatelessWidget {
   final List<Transaction> _userTransactions;
@@ -11,65 +12,43 @@ class TransactionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 420,
-      child: _userTransactions.isEmpty
-          ? Column(
-              children: <Widget>[
-                Text(
-                  'No transactions added yet',
-                  style: Theme.of(context).textTheme.title,
-                ),
-                SizedBox(
-                  height: 50,
-                ),
-                Container(
-                  height: 150,
-                  child: Image.asset(
-                    'assets/images/profile-pic.jpg',
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ],
-            )
-          : ListView.builder(
-              itemBuilder: (ctx, index) {
-                return Card(
-                  elevation: 5,
-                  margin: EdgeInsets.symmetric(
-                    vertical: 8,
-                    horizontal: 5,
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      radius: 30,
-                      child: Padding(
-                        padding: const EdgeInsets.all(5),
-                        child: FittedBox(
-                          child: Text(
-                              '\$${_userTransactions[index].amount.toStringAsFixed(2)}'),
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      '${_userTransactions[index].title}',
+    final mediaQuery = MediaQuery.of(context);
+
+    return _userTransactions.isEmpty
+//! Image when no transaction
+        ? LayoutBuilder(
+            builder: (ctx, constrain) {
+              return Column(
+                children: <Widget>[
+                  Container(
+                    height: constrain.maxHeight * 0.2,
+                    child: Text(
+                      'No transactions added yet',
                       style: Theme.of(context).textTheme.title,
                     ),
-                    subtitle: Text(
-                      DateFormat('MMM, dd yyyy')
-                          .format(_userTransactions[index].date),
-                    ),
-                    trailing: IconButton(
-                      icon: Icon(Icons.delete_forever),
-                      color: Colors.red,
-                      onPressed: () =>
-                          _deleteTransaction(_userTransactions[index].id),
+                  ),
+                  SizedBox(
+                    height: constrain.maxHeight * 0.1,
+                  ),
+                  Container(
+                    height: constrain.maxHeight * 0.5,
+                    child: Image.asset(
+                      'assets/images/bill_icon.png',
+                      // 'assets/images/profile-pic.jpg',
+                      fit: BoxFit.cover,
                     ),
                   ),
-                );
-              },
-              itemCount: _userTransactions.length,
-            ),
-    );
+                ],
+              );
+            },
+          )
+//! Transaction List View
+        : ListView.builder(
+            itemBuilder: (ctx, index) {
+              return new TransactionItem(
+                  _userTransactions[index], _deleteTransaction);
+            },
+            itemCount: _userTransactions.length,
+          );
   }
 }

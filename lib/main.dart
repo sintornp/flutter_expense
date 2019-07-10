@@ -1,12 +1,16 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart';
+import 'dart:io';
 
 import './widgets/new_transaction.dart';
 import './widgets/transaction_list.dart';
 import './models/transaction.dart';
 import './widgets/chart.dart';
 
-void main() => runApp(MyApp());
+void main() {
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   @override
@@ -26,7 +30,26 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    // TODO: implement initState
+    WidgetsBinding.instance.addObserver(this);
+    super.initState();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print(state);
+  }
+
+  @override
+  dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  bool _showChart = false;
   final List<Transaction> _userTransactions = [
     Transaction(
       id: 't1',
@@ -50,12 +73,6 @@ class _MyHomePageState extends State<MyHomePage> {
       id: 't4',
       title: 'Lunch with friend',
       amount: 40.50,
-      date: DateTime.now(),
-    ),
-    Transaction(
-      id: 't5',
-      title: 'Candy',
-      amount: 3.50,
       date: DateTime.now(),
     ),
   ];
@@ -101,6 +118,64 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  List<Widget> _buildLandscapeContent(
+      MediaQueryData mediaQuery, AppBar appBar, Widget txListWidget) {
+    return [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Text(
+            'Show Chart',
+            style: Theme.of(this.context).textTheme.title,
+          ),
+          Switch.adaptive(
+            value: _showChart,
+            onChanged: (newValue) {
+              setState(() {
+                _showChart = newValue;
+              });
+            },
+          )
+        ],
+      ),
+      _showChart
+//! Chart display in Landscape mode
+          ? Container(
+              height: (mediaQuery.size.height -
+                      appBar.preferredSize.height -
+                      mediaQuery.padding.top) *
+                  0.8,
+              width: double.infinity,
+              child: Card(
+                color: pColor,
+                child: Chart(_recentTransactions),
+                elevation: 5,
+              ),
+            )
+//! Transaction display in Landscape mode
+          : txListWidget,
+    ];
+  }
+
+  List<Widget> _buildPortraitContent(
+      MediaQueryData mediaQuery, AppBar appBar, Widget txListWidget) {
+    return [
+      Container(
+        height: (mediaQuery.size.height -
+                appBar.preferredSize.height -
+                mediaQuery.padding.top) *
+            0.3,
+        width: double.infinity,
+        child: Card(
+          color: pColor,
+          child: Chart(_recentTransactions),
+          elevation: 5,
+        ),
+      ),
+      txListWidget
+    ];
+  }
+
   final List<Map> colors = [
     {'p': Colors.purple, 'a': Colors.orange, 'buttonColor': Colors.white},
     {'p': Colors.lightBlue, 'a': Colors.red, 'buttonColor': Colors.white},
@@ -126,6 +201,89 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+
+//! AppBar widget
+    final PreferredSizeWidget appBar = Platform.isIOS
+        ? CupertinoNavigationBar(
+            backgroundColor: pColor,
+            middle: Text(
+              'Personal Expense',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+              ),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: <Widget>[
+                GestureDetector(
+                  child: Icon(
+                    CupertinoIcons.paw,
+                    color: Colors.white,
+                  ),
+                  onTap: _toggleColor,
+                ),
+                new Builder(
+                  builder: (context) {
+                    return GestureDetector(
+                      child: Icon(
+                        CupertinoIcons.add_circled,
+                        color: Colors.white,
+                      ),
+                      onTap: () => _startAddNewTransaction(context),
+                    );
+                  },
+                ),
+              ],
+            ),
+          )
+        : AppBar(
+            title: Text(
+              'Personal Expenses',
+              style: TextStyle(fontFamily: 'OpenSans'),
+            ),
+            actions: <Widget>[
+              IconButton(
+                icon: Icon(Icons.color_lens),
+                color: Colors.white,
+                onPressed: _toggleColor,
+              ),
+              new Builder(
+                builder: (context) {
+                  return IconButton(
+                    icon: Icon(Icons.add_circle_outline),
+                    color: Colors.white,
+                    onPressed: () => _startAddNewTransaction(context),
+                  );
+                },
+              ),
+            ],
+          );
+//! Transaction List Widget
+    final txListWidget = Container(
+        height: (mediaQuery.size.height -
+                appBar.preferredSize.height -
+                mediaQuery.padding.top) *
+            0.7,
+        child: TransactionList(_userTransactions, _deleteTransaction));
+    final isLandscape = mediaQuery.orientation == Orientation.landscape;
+    final bodyWidget = SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+//! Switch to show chart and Transactions in Landscape mode
+            if (isLandscape)
+              ..._buildLandscapeContent(mediaQuery, appBar, txListWidget),
+//! Chart and Transactions display in Portrait mode
+            if (!isLandscape)
+              ..._buildPortraitContent(mediaQuery, appBar, txListWidget),
+          ],
+        ),
+      ),
+    );
     return MaterialApp(
       theme: ThemeData(
         primarySwatch: pColor,
@@ -150,57 +308,32 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
         ),
       ),
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            'Personal Expenses',
-            style: TextStyle(fontFamily: 'OpenSans'),
-          ),
-          actions: <Widget>[
-            IconButton(
-              icon: Icon(Icons.color_lens),
-              color: Colors.white,
-              onPressed: _toggleColor,
+      home: Platform.isIOS
+          ? CupertinoPageScaffold(
+              child: bodyWidget,
+              navigationBar: appBar,
+            )
+          : Scaffold(
+              appBar: appBar,
+              body: bodyWidget,
+              floatingActionButtonLocation:
+                  FloatingActionButtonLocation.centerFloat,
+              floatingActionButton: Platform.isIOS
+                  ? Container()
+                  : new Builder(
+                      builder: (context) {
+                        return new FloatingActionButton(
+                          child: Icon(
+                            Icons.add,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                          elevation: 5,
+                          onPressed: () => _startAddNewTransaction(context),
+                        );
+                      },
+                    ),
             ),
-            IconButton(
-              icon: Icon(Icons.add_circle_outline),
-              color: Colors.white,
-              onPressed: () => _startAddNewTransaction(context),
-            ),
-          ],
-        ),
-        body: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Container(
-                width: double.infinity,
-                child: Card(
-                  color: pColor,
-                  child: Chart(_recentTransactions),
-                  elevation: 5,
-                ),
-              ),
-              // NewTransaction(_addNewTransaction),
-              TransactionList(_userTransactions, _deleteTransaction),
-            ],
-          ),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: new Builder(
-          builder: (context) {
-            return new FloatingActionButton(
-              child: Icon(
-                Icons.add,
-                color: Colors.white,
-                size: 30,
-              ),
-              elevation: 5,
-              onPressed: () => _startAddNewTransaction(context),
-            );
-          },
-        ),
-      ),
     );
   }
 }
